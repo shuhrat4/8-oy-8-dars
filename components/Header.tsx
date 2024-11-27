@@ -8,12 +8,16 @@ import { LogIcon } from "@/public/images/icon";
 import Modal from "./Modal";
 import LoginIputs from "./LoginIputs";
 import Register from "./Register";
+import { useAxios } from "@/hook/useEnv";
+import VerifyRegister from "./VerifyRegister";
 
 const Header = () => {
   const pathname = usePathname();
   const [cartCount] = useState(6);
   const [loginModal, setLoginModal] = useState<boolean>(false);
-  const [isLogin, setSelectedAuth] = useState<"login" | "register" | "verify">("login");
+  const [selectedAuth, setSelectedAuth] = useState<"login" | "register" | "verifyRegister">("login");
+  const [registerVerifyValue, setRegisterVerifyValue] = useState<string>("")
+  const [registerEmail, setRegisterEmail] = useState<string>("")
 
   const navLinks = [
     { href: "/", label: "Home" },
@@ -26,19 +30,40 @@ const Header = () => {
     e.preventDefault();
     const target = e.target as HTMLFormElement;
 
-    if (isLogin === "login") {
+    if (selectedAuth === "register") {
       const data = {
-        usernameoremail: target.email?.value || "",
-        password: target.password?.value || "",
-      };
-    } else if (isLogin === "register") {
-      const data = {
-        username: target.username?.value || "",
         email: target.email?.value || "",
         password: target.password?.value || "",
-        confirmPassword: target.confirmPassword?.value || "",
+        firstName: target.username?.value || "",
+        lastName: target.username?.value || ""
       };
-      console.log("Register Data:", data);
+
+      useAxios().post('/register', data).then(() => {
+        setRegisterEmail(data.email); // Register email to use for verification
+        setSelectedAuth("verifyRegister"); // Switch to verify register step
+      });
+    }
+    else if (selectedAuth === "verifyRegister") {
+      const data = {
+        email: registerEmail,
+        code: registerVerifyValue
+      };
+
+      useAxios().post('/users/verify', data).then(res => {
+        console.log(res);
+        setSelectedAuth("login"); // After verification, switch to login
+      });
+    }
+    else if (selectedAuth === "login") {
+      const data = {
+        usernameoremail: target.email?.value || "",
+        password: target.password?.value || ""
+      };
+
+      useAxios().post('/users/verify', data).then(res => {
+        console.log(res);
+        setSelectedAuth("login"); // Stay on login if valid
+      });
     }
   }
 
@@ -93,22 +118,25 @@ const Header = () => {
         <ul className="flex cursor-pointer items-center font-semibold gap-[10px] justify-center mb-[40px] pt-[50px]">
           <li
             onClick={() => setSelectedAuth("login")}
-            className={`${isLogin === "login" ? "text-[#46A358]" : "text-[#3D3D3D]"
+            className={`${selectedAuth === "login" ? "text-[#46A358]" : "text-[#3D3D3D]"
               } text-[16px] font-semibold relative hover:opacity-70 duration-200 leading-5  after:h-4 after:bg-[#3D3D3D] after:absolute after:right-[-12px] after:bottom-0`}
           >
             Login
           </li>
           <li
             onClick={() => setSelectedAuth("register")}
-            className={`${isLogin === "register" ? "text-[#46A358]" : "text-[#3D3D3D]"
+            className={`${selectedAuth === "register" ? "text-[#46A358]" : "text-[#3D3D3D]"
               } text-[16px] leading-5 hover:opacity-70 duration-200 font-semibold`}
           >
             Register
           </li>
         </ul>
         <form onSubmit={handleSubmitLogin} className="w-[300px] mx-auto mt-[53px] space-y-5">
-          {isLogin === "login" ? <LoginIputs /> : <Register />}
-          <Button extraStyle="w-full" title={isLogin === "login" ? "Login" : "Register"} type="submit" />
+          {selectedAuth === "login" && <LoginIputs />}
+          {selectedAuth === "register" && <Register />}
+          {selectedAuth === "verifyRegister" && <VerifyRegister setRegisterVerifyValue={setRegisterVerifyValue} />}
+
+          <Button extraStyle="w-full" title={selectedAuth === "login" ? "Login" : selectedAuth === "register" ? "Register" : "Verify"} type="submit" />
         </form>
       </Modal>
     </header>
